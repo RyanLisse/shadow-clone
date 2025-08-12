@@ -16,6 +16,8 @@ interface UserSettings {
   selectedModels: string[];
   enableIndexing: boolean;
   rules?: string | null;
+  executionBackend?: "k8s" | "vibekit" | null;
+  vibekitProvider?: "e2b" | "northflank" | "daytona" | "cloudflare" | "dagger" | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +29,8 @@ type UpdateUserSettingsParams = {
   selectedModels?: string[];
   enableIndexing?: boolean;
   rules?: string | null;
+  executionBackend?: "k8s" | "vibekit" | null;
+  vibekitProvider?: "e2b" | "northflank" | "daytona" | "cloudflare" | "dagger" | null;
 };
 
 interface UserSettingsResponse {
@@ -58,6 +62,8 @@ async function updateUserSettingsAPI(settings: {
   selectedModels?: string[];
   enableIndexing?: boolean;
   rules?: string | null;
+  executionBackend?: "k8s" | "vibekit" | null;
+  vibekitProvider?: "e2b" | "northflank" | "daytona" | "cloudflare" | "dagger" | null;
 }): Promise<UserSettings> {
   const response = await fetch("/api/user-settings", {
     method: "POST",

@@ -26,7 +26,8 @@ import { prisma } from "@repo/db";
 export async function createToolExecutor(
   taskId: string,
   workspacePath?: string,
-  mode?: AgentMode
+  mode?: AgentMode,
+  opts?: { remoteBackend?: "k8s" | "vibekit" }
 ): Promise<ToolExecutor> {
   const agentMode = mode || config.agentMode;
 
@@ -34,8 +35,22 @@ export async function createToolExecutor(
     return new LocalToolExecutor(taskId, workspacePath);
   }
 
-  // If using VibeKit as remote backend, delegate to its workspace manager
-  if ((config as any).remoteBackend === "vibekit") {
+  // Choose remote backend dynamically per task if available
+  let desiredBackend = opts?.remoteBackend || (config as any).remoteBackend;
+
+  // If a VibeKit session exists for this task, prefer VibeKit executor
+  try {
+    const session = await prisma.taskSession.findFirst({
+      where: { taskId, isActive: true, NOT: { connectionId: null } },
+      orderBy: { createdAt: "desc" },
+      select: { connectionId: true },
+    });
+    if (session?.connectionId) {
+      desiredBackend = "vibekit";
+    }
+  } catch {}
+
+  if (desiredBackend === "vibekit") {
     const wm = new VibeKitWorkspaceManager();
     return await wm.getExecutor(taskId);
   }
@@ -84,7 +99,10 @@ export async function createToolExecutor(
 /**
  * Create a workspace manager based on the configured agent mode
  */
-export function createWorkspaceManager(mode?: AgentMode): WorkspaceManager {
+export function createWorkspaceManager(
+  mode?: AgentMode,
+  opts?: { remoteBackend?: "k8s" | "vibekit" }
+): WorkspaceManager {
   const agentMode = mode || config.agentMode;
 
   switch (agentMode) {
@@ -92,7 +110,7 @@ export function createWorkspaceManager(mode?: AgentMode): WorkspaceManager {
       return new LocalWorkspaceManager();
 
     case "remote":
-      if ((config as any).remoteBackend === "vibekit") {
+      if ((opts?.remoteBackend || (config as any).remoteBackend) === "vibekit") {
         return new VibeKitWorkspaceManager();
       }
       return new RemoteWorkspaceManager();

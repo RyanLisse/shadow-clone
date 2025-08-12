@@ -23,7 +23,14 @@ export class VibeKitWorkspaceManager implements WorkspaceManager {
         );
       }
 
-      const provider = buildSandboxProvider();
+      // Use user's preferred provider if set
+      const userSettings = await prisma.userSettings.findUnique({
+        where: { userId: taskConfig.userId },
+        select: { vibekitProvider: true },
+      });
+      const provider = buildSandboxProvider(
+        (userSettings?.vibekitProvider as any) || undefined
+      );
       const workdir = getVibekitWorkdir();
 
       const envs: Record<string, string> = {
@@ -179,4 +186,3 @@ export class VibeKitWorkspaceManager implements WorkspaceManager {
     return true;
   }
 }
-

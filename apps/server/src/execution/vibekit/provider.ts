@@ -18,8 +18,8 @@ export type VibekitProviderType =
   | "cloudflare"
   | "dagger";
 
-export function buildSandboxProvider(): SandboxProvider {
-  const provider = (config as any).vibekitProvider as VibekitProviderType | undefined;
+export function buildSandboxProvider(override?: VibekitProviderType): SandboxProvider {
+  const provider = (override || (config as any).vibekitProvider) as VibekitProviderType | undefined;
   const workdir = (config as any).vibekitWorkdir as string | undefined;
   const templateId = (config as any).vibekitTemplateId as string | undefined;
 
@@ -46,4 +46,3 @@ export function buildSandboxProvider(): SandboxProvider {
 export function getVibekitWorkdir(): string {
   return ((config as any).vibekitWorkdir as string) || "/workspace";
 }
-

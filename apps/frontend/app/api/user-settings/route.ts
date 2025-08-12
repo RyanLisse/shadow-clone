@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { autoPullRequest, enableShadowWiki, memoriesEnabled, selectedModels, enableIndexing, rules } =
+    const { autoPullRequest, enableShadowWiki, memoriesEnabled, selectedModels, enableIndexing, rules, executionBackend, vibekitProvider } =
       body;
 
     // Validate autoPullRequest if provided
@@ -100,6 +100,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Validate executionBackend if provided
+    if (
+      executionBackend !== undefined &&
+      executionBackend !== null &&
+      executionBackend !== "k8s" &&
+      executionBackend !== "vibekit"
+    ) {
+      return NextResponse.json(
+        { error: "executionBackend must be 'k8s' or 'vibekit'" },
+        { status: 400 }
+      );
+    }
+
+    // Validate vibekitProvider if provided
+    const validProviders = ["e2b", "northflank", "daytona", "cloudflare", "dagger"] as const;
+    if (
+      vibekitProvider !== undefined &&
+      vibekitProvider !== null &&
+      !validProviders.includes(vibekitProvider)
+    ) {
+      return NextResponse.json(
+        { error: "Invalid vibekitProvider" },
+        { status: 400 }
+      );
+    }
+
     // Build update object with only provided fields
     const updateData: {
       autoPullRequest?: boolean;
@@ -108,6 +134,8 @@ export async function POST(request: NextRequest) {
       selectedModels?: string[];
       enableIndexing?: boolean;
       rules?: string;
+      executionBackend?: "k8s" | "vibekit" | null;
+      vibekitProvider?: "e2b" | "northflank" | "daytona" | "cloudflare" | "dagger" | null;
     } = {};
     if (autoPullRequest !== undefined)
       updateData.autoPullRequest = autoPullRequest;
@@ -121,6 +149,10 @@ export async function POST(request: NextRequest) {
       updateData.enableIndexing = enableIndexing;
     if (rules !== undefined)
       updateData.rules = rules || null;
+    if (executionBackend !== undefined)
+      updateData.executionBackend = executionBackend;
+    if (vibekitProvider !== undefined)
+      updateData.vibekitProvider = vibekitProvider;
 
     const settings = await updateUserSettings(session.user.id, updateData);
 

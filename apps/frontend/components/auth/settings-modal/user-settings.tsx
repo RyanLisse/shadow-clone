@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, X } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { authClient } from "@/lib/auth/auth-client";
 import { useAuthSession } from "../session-provider";
 import { useModal } from "@/components/layout/modal-context";
@@ -126,6 +127,64 @@ export function UserSettings() {
 
           {/* User Settings Section */}
           <div className="flex w-full flex-col gap-4 border-t pt-4">
+            {/* Execution Backend Selection */}
+            <div className="flex items-center justify-between gap-4">
+              <label htmlFor="execution-backend" className="flex flex-col gap-0">
+                <div className="text-sm font-normal">Execution Backend</div>
+                <div className="text-muted-foreground text-xs">
+                  Where tasks run: Kubernetes (Kata) or VibeKit sandboxes
+                </div>
+              </label>
+              <div className="w-[220px]">
+                <Select
+                  value={(userSettings?.executionBackend as any) || "k8s"}
+                  onValueChange={(val) =>
+                    updateUserSettings.mutate({ executionBackend: val as any })
+                  }
+                  disabled={isLoadingSettings}
+                >
+                  <SelectTrigger id="execution-backend">
+                    <SelectValue placeholder="Select backend" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="k8s">Kubernetes (Kata)</SelectItem>
+                    <SelectItem value="vibekit">VibeKit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* VibeKit Provider Selection */}
+            {((userSettings?.executionBackend as any) || "k8s") === "vibekit" && (
+              <div className="flex items-center justify-between gap-4">
+                <label htmlFor="vibekit-provider" className="flex flex-col gap-0">
+                  <div className="text-sm font-normal">VibeKit Provider</div>
+                  <div className="text-muted-foreground text-xs">
+                    Choose a sandbox provider for VibeKit
+                  </div>
+                </label>
+                <div className="w-[220px]">
+                  <Select
+                    value={(userSettings?.vibekitProvider as any) || "e2b"}
+                    onValueChange={(val) =>
+                      updateUserSettings.mutate({ vibekitProvider: val as any })
+                    }
+                    disabled={isLoadingSettings}
+                  >
+                    <SelectTrigger id="vibekit-provider">
+                      <SelectValue placeholder="Select provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="e2b">E2B</SelectItem>
+                      <SelectItem value="northflank">Northflank</SelectItem>
+                      <SelectItem value="daytona">Daytona</SelectItem>
+                      <SelectItem value="cloudflare">Cloudflare</SelectItem>
+                      <SelectItem value="dagger">Dagger (local)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <label htmlFor="auto-pr" className="flex flex-col gap-0">
                 <div className="text-sm font-normal">
