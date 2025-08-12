@@ -1,281 +1,213 @@
-# @vibe-kit/sdk
+# @vibe-kit/auth
 
-VibeKit SDK is a TypeScript library that provides a fluent interface for integrating AI coding agents into your applications. It supports multiple AI providers (Claude, Codex, Gemini, Grok, OpenCode) and various sandbox environments for secure code execution.
+Universal OAuth authentication library for AI providers' MAX subscriptions. Currently supports Claude AI with Gemini, Grok, and ChatGPT Max coming soon.
+
+## Features
+
+- **MAX Subscription Access**: Leverage your existing AI provider MAX subscriptions programmatically
+- **Multiple Providers**: Claude AI (available), Gemini, Grok, ChatGPT Max (coming soon)
+- **Environment-Specific Builds**: Separate Node.js and browser-compatible builds
+- **OAuth 2.0 + PKCE**: Secure authentication with industry standards
+- **Token Management**: Automatic token refresh and secure storage
+- **Browser & Node.js**: Works in both web applications and server environments
 
 ## Installation
 
 ```bash
-npm install @vibe-kit/sdk
+npm install @vibe-kit/auth
 ```
 
-## Quick Start
+## Usage
+
+### Node.js Environment
+
+For Node.js applications (CLI tools, servers, etc.), use the Node.js-specific import:
 
 ```typescript
-import { VibeKit } from "@vibe-kit/sdk";
-import { createE2BProvider } from "@vibe-kit/e2b";
+import { ClaudeAuth } from '@vibe-kit/auth/node';
 
-// Configure sandbox provider
-const e2bProvider = createE2BProvider({
-  apiKey: process.env.E2B_API_KEY!,
-  templateId: "vibekit-claude",
-});
+// Start OAuth flow (opens browser automatically)
+const token = await ClaudeAuth.authenticate();
 
-// Create and configure VibeKit instance
-const vibeKit = new VibeKit()
-  .withAgent({
-    type: "claude",
-    provider: "anthropic",
-    apiKey: process.env.ANTHROPIC_API_KEY!,
-    model: "claude-sonnet-4-20250514",
-  })
-  .withSandbox(e2bProvider);
+// Check if authenticated
+const isAuthenticated = await ClaudeAuth.isAuthenticated();
 
-// Add event listeners
-vibeKit.on("update", (update) => {
-  console.log("Update:", update);
-});
+// Get valid token (auto-refresh if needed)
+const accessToken = await ClaudeAuth.getValidToken();
 
-vibeKit.on("error", (error) => {
-  console.error("Error:", error);
-});
+// Verify authentication
+const isValid = await ClaudeAuth.verify();
 
-// Generate code
-const result = await vibeKit.generateCode({
-  prompt: "Create a simple web app that displays a list of users",
-  mode: "code",
-});
+// Get authentication status
+const status = await ClaudeAuth.getStatus();
 
-// Clean up when done
-await vibeKit.kill();
-
-console.log("Result:", result);
+// Logout
+await ClaudeAuth.logout();
 ```
 
-## Configuration
+### Browser Environment
 
-### Agent Configuration
-
-Configure which AI agent to use:
+For browser/web applications, use the browser-safe import:
 
 ```typescript
-.withAgent({
-  type: "claude",           // Agent type: "claude", "codex", "opencode", "gemini", "grok"
-  provider: "anthropic",    // Provider: "anthropic", "openai", "openrouter", etc.
-  apiKey: "your-api-key",   // API key for the provider
-  model: "claude-sonnet-4-20250514", // Specific model to use
-})
+import { ClaudeWebAuth, LocalStorageTokenStorage } from '@vibe-kit/auth/browser';
+// OR use the default import which is browser-safe:
+// import { ClaudeAuth, LocalStorageTokenStorage } from '@vibe-kit/auth';
+
+// Create storage
+const storage = new LocalStorageTokenStorage();
+const auth = new ClaudeWebAuth(storage);
+
+// Create authorization URL
+const { url, state, codeVerifier } = ClaudeWebAuth.createAuthorizationUrl();
+
+// Open URL in browser for user authentication
+window.open(url, '_blank');
+
+// After user authorizes and provides the code#state string:
+const authCode = 'code123#state456'; // From user input
+const token = await auth.authenticate(authCode, codeVerifier, state);
+
+// Check authentication status
+const isAuthenticated = await auth.isAuthenticated();
+
+// Get valid token (auto-refresh if needed)
+const accessToken = await auth.getValidToken();
 ```
 
-### Sandbox Configuration
+### Using with AI Provider APIs
 
-Configure the execution environment. Install the specific provider package first:
+Once authenticated, use the access token with your MAX subscription to access AI APIs:
+
+#### Claude AI (Available Now)
 
 ```typescript
-// E2B
-import { createE2BProvider } from "@vibe-kit/e2b";
-const e2bProvider = createE2BProvider({
-  apiKey: "e2b_****",
-  templateId: "custom-template-id" // optional
-});
+import { ClaudeAuth } from '@vibe-kit/auth/node'; // For Node.js
 
-// Northflank
-import { createNorthflankProvider } from "@vibe-kit/northflank";
-const northflankProvider = createNorthflankProvider({
-  apiKey: "nf_****",
-  image: "your-custom-image", // optional
-});
+// Authenticate and get token
+let accessToken = await ClaudeAuth.getValidToken();
+if (!accessToken) {
+  await ClaudeAuth.authenticate();
+  accessToken = await ClaudeAuth.getValidToken();
+}
 
-// Daytona
-import { createDaytonaProvider } from "@vibe-kit/daytona";
-const daytonaProvider = createDaytonaProvider({
-  apiKey: "daytona_****",
-  image: "my-codex-image", // optional
-});
-
-.withSandbox(provider)
+// Use with Claude Code CLI
+// First, export the token as an environment variable:
+// export CLAUDE_CODE_OAUTH_TOKEN=${accessToken}
+// claude -p 'Hello, Claude!'
 ```
 
-### Additional Configuration
+For browser applications:
 
 ```typescript
-// GitHub integration for PR creation
-.withGithub({
-  token: "ghp_****",
-  repository: "owner/repo-name"
-})
+import { ClaudeWebAuth, LocalStorageTokenStorage } from '@vibe-kit/auth/browser';
 
-// Working directory
-.withWorkingDirectory("/path/to/project")
+const storage = new LocalStorageTokenStorage();
+const auth = new ClaudeWebAuth(storage);
 
-// Environment variables
-.withSecrets({
-  "DATABASE_URL": "postgresql://...",
-  "API_KEY": "secret-key"
-})
+// Get token (assumes user is already authenticated)
+const accessToken = await auth.getValidToken();
+if (!accessToken) {
+  // Handle authentication flow...
+}
 
-// Reuse existing sandbox session
-.withSession("existing-sandbox-id")
+// Use with Claude Code CLI
+// First, export the token as an environment variable:
+// export CLAUDE_CODE_OAUTH_TOKEN=${accessToken}
+// claude -p 'Hello!'
 ```
 
-## API Reference
-
-### `generateCode(options)`
-
-Generate code using the configured AI agent.
+### Token Import/Export (Node.js only)
 
 ```typescript
-const result = await vibeKit.generateCode({
-  prompt: "Create a React component for a todo list",
-  mode: "code", // "code" for generation, "ask" for Q&A
-  branch?: "feature-branch", // optional
-  history?: conversationHistory, // optional
-});
+import { ClaudeAuth } from '@vibe-kit/auth/node';
+
+// Export token in different formats
+const envToken = await ClaudeAuth.exportToken('env');
+const jsonToken = await ClaudeAuth.exportToken('json');
+const fullToken = await ClaudeAuth.exportToken('full');
+
+// Import from various sources
+await ClaudeAuth.importToken({ fromEnv: true });
+await ClaudeAuth.importToken({ fromFile: './token.json' });
+await ClaudeAuth.importToken({ refreshToken: 'your-refresh-token' });
 ```
 
-### `createPullRequest(labelOptions?, branchPrefix?)`
-
-Create a pull request with generated code.
+## Types
 
 ```typescript
-const pr = await vibeKit.createPullRequest();
-```
-
-### `executeCommand(command, options?)`
-
-Execute a command in the sandbox.
-
-```typescript
-const result = await vibeKit.executeCommand("npm test");
-```
-
-### `runTests()`
-
-Run tests in the sandbox.
-
-```typescript
-const result = await vibeKit.runTests();
-```
-
-### Session Management
-
-```typescript
-// Get current session ID
-const sessionId = await vibeKit.getSession();
-
-// Set session ID
-await vibeKit.setSession("session-id");
-
-// Pause sandbox
-await vibeKit.pause();
-
-// Resume sandbox
-await vibeKit.resume();
-
-// Kill sandbox
-await vibeKit.kill();
-```
-
-### `getHost(port)`
-
-Get the host URL for a specific port.
-
-```typescript
-const host = await vibeKit.getHost(3000);
-console.log(`App running at: ${host}`);
-```
-
-## Events
-
-VibeKit extends EventEmitter and emits the following events:
-
-```typescript
-vibeKit.on("update", (message: string) => {
-  // Streaming updates during code generation
-});
-
-vibeKit.on("error", (error: string) => {
-  // Error notifications
-});
-
-vibeKit.on("stdout", (data: string) => {
-  // Standard output from command execution
-});
-
-vibeKit.on("stderr", (data: string) => {
-  // Standard error from command execution
-});
-```
-
-## Supported Agents
-
-- **Claude** - Anthropic's Claude models
-- **Codex** - OpenAI's Codex models
-- **OpenCode** - Open-source coding models
-- **Gemini** - Google's Gemini models
-- **Grok** - xAI's Grok models
-
-## Supported Sandbox Providers
-
-- **E2B** - Cloud sandboxes
-- **Northflank** - Kubernetes-based environments
-- **Daytona** - Development environments
-- **Cloudflare** - Workers-based sandboxes
-- **Dagger** - Container-based execution
-- **Modal** - Serverless computing
-- **Fly.io** - Edge computing
-
-## Error Handling
-
-```typescript
-try {
-  const result = await vibeKit.generateCode({
-    prompt: "Create a web app",
-    mode: "code"
-  });
-} catch (error) {
-  if (error.message.includes('not initialized')) {
-    // Handle initialization error
-  } else {
-    // Handle generation error
-  }
+interface OAuthToken {
+  access_token: string;
+  token_type: string;
+  expires_in?: number;
+  refresh_token?: string;
+  scope?: string;
+  created_at: number;
 }
 ```
 
-## Examples
+## Storage Options
 
-### With Conversation History
+- **MemoryTokenStorage**: In-memory storage for server-side use
+- **LocalStorageTokenStorage**: Browser localStorage (client-side only)
+- **CookieTokenStorage**: Cookie-based storage for SSR applications
+
+## Security
+
+- Tokens are stored with restricted file permissions (CLI)
+- Automatic token refresh prevents expired token usage
+- PKCE (Proof Key for Code Exchange) for secure OAuth flows
+- State parameter validation prevents CSRF attacks
+
+## Environment Compatibility
+
+- **Node.js**: Use `@vibe-kit/auth/node` for full functionality including file system access and browser launching
+- **Browser**: Use `@vibe-kit/auth/browser` or default import for browser-safe functionality
+- **Universal**: The default import provides browser-safe functionality that works everywhere
+
+## Why Use MAX Subscriptions?
+
+Instead of paying per API call, leverage the subscriptions you already have:
+
+- **Cost Effective**: Use your existing MAX subscriptions instead of pay-per-use APIs
+- **Higher Limits**: MAX subscriptions often have higher rate limits and priority access
+- **Latest Models**: Access to the newest and most capable models in each provider's lineup
+- **Consistent Experience**: Same interface across different AI providers
+
+## Usage with Other Libraries
+
+The auth package can be used with any Claude AI client library or direct API calls:
 
 ```typescript
-const history = [
-  { role: "user", content: "What is React?" },
-  { role: "assistant", content: "React is a JavaScript library..." }
-];
+// Node.js applications
+import { authenticate, getValidToken } from '@vibe-kit/auth/node';
 
-const response = await vibeKit.generateCode({
-  prompt: "Now show me a React component example",
-  mode: "code",
-  history
-});
+// Browser applications  
+import { ClaudeWebAuth } from '@vibe-kit/auth/browser';
 ```
 
-### With Streaming
+#### Coming Soon
+
+- **Gemini Max**: Access Google's most advanced AI models with your subscription
+- **Grok Max**: Leverage xAI's premium models through your subscription  
+- **ChatGPT Max**: Use OpenAI's latest models with your existing subscription
+
+### With Official SDKs
 
 ```typescript
-const response = await vibeKit.generateCode({
-  prompt: "Explain how React hooks work",
-  mode: "ask"
+// Claude AI with Anthropic SDK
+import Anthropic from '@anthropic-ai/sdk';
+import { ClaudeAuth } from '@vibe-kit/auth/node';
+
+const accessToken = await ClaudeAuth.getValidToken();
+const anthropic = new Anthropic({
+  apiKey: '', // Leave empty for OAuth
+  authToken: accessToken, // Use your MAX subscription token
 });
 
-// Listen to streaming updates via events
-vibeKit.on("update", (message) => {
-  console.log("Update:", message);
+const message = await anthropic.messages.create({
+  model: 'claude-sonnet-4-20250514',
+  max_tokens: 1000,
+  messages: [{ role: 'user', content: 'Hello!' }]
 });
 ```
-
-## License
-
-MIT
-
-## Contributing
-
-Contributions are welcome! Please read our contributing guidelines before submitting pull requests.

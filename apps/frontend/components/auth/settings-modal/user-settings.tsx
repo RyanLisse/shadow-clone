@@ -6,6 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, X } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
+// VibeKit Auth (browser SDK)
+import {
+  ClaudeWebAuth,
+  LocalStorageTokenStorage,
+} from "@vibe-kit/auth/browser";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { authClient } from "@/lib/auth/auth-client";
 import { useAuthSession } from "../session-provider";
@@ -81,6 +86,75 @@ export function UserSettings() {
     if (words.length <= 100) {
       setRulesValue(value);
       debouncedSave(value);
+    }
+  };
+
+  // --- VibeKit Auth: Claude ---
+  const [claudeAuthUrl, setClaudeAuthUrl] = useState<string | null>(null);
+  const [claudeState, setClaudeState] = useState<string | null>(null);
+  const [claudeVerifier, setClaudeVerifier] = useState<string | null>(null);
+  const [pasteCode, setPasteCode] = useState("");
+  const [claudeStatus, setClaudeStatus] = useState<
+    "idle" | "waiting" | "success" | "error"
+  >("idle");
+  const [claudeConnected, setClaudeConnected] = useState<boolean | null>(null);
+
+  const storage = new LocalStorageTokenStorage();
+  const claudeAuth = new ClaudeWebAuth(storage);
+  useEffect(() => {
+    // Probe current status on open
+    void checkClaudeStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const initiateClaudeSignIn = async () => {
+    try {
+      const { url, state, codeVerifier } = await ClaudeWebAuth.createAuthorizationUrl();
+      setClaudeAuthUrl(url);
+      setClaudeState(state);
+      setClaudeVerifier(codeVerifier);
+      setClaudeStatus("waiting");
+      // Open Claude's auth page in a new tab for the user to copy code#state
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      console.error(e);
+      setClaudeStatus("error");
+    }
+  };
+
+  const completeClaudeSignIn = async () => {
+    if (!claudeVerifier || !claudeState) return;
+    try {
+      await claudeAuth.authenticate(pasteCode.trim(), claudeVerifier, claudeState);
+      setClaudeStatus("success");
+      setClaudeConnected(true);
+    } catch (e) {
+      console.error("Claude auth failed", e);
+      setClaudeStatus("error");
+    }
+  };
+
+  const checkClaudeStatus = async () => {
+    try {
+      const ok = await claudeAuth.isAuthenticated();
+      setClaudeConnected(ok);
+      setClaudeStatus(ok ? "success" : "idle");
+    } catch {
+      setClaudeConnected(false);
+    }
+  };
+
+  const logoutClaude = async () => {
+    try {
+      await claudeAuth.logout();
+      setClaudeConnected(false);
+      setClaudeStatus("idle");
+      setPasteCode("");
+      setClaudeAuthUrl(null);
+      setClaudeState(null);
+      setClaudeVerifier(null);
+    } catch (e) {
+      console.error("Claude logout failed", e);
     }
   };
 
@@ -185,6 +259,64 @@ export function UserSettings() {
                 </div>
               </div>
             )}
+
+            {/* VibeKit Auth Section */}
+            <div className="flex flex-col gap-3 rounded-md border p-3">
+              <div className="text-sm font-medium">VibeKit Auth</div>
+              <div className="text-muted-foreground text-xs">
+                Connect your Claude MAX subscription. After clicking, copy the
+                code#state from Claude and paste it below to complete.
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" onClick={initiateClaudeSignIn} disabled={claudeStatus === "waiting"}>
+                  {claudeStatus === "waiting" ? (
+                    <span className="flex items-center gap-1"><Loader2 className="size-3 animate-spin" /> Waiting for code…</span>
+                  ) : (
+                    "Sign in with Claude"
+                  )}
+                </Button>
+                <Button size="sm" variant="secondary" disabled title="Coming soon via VibeKit Auth">
+                  Sign in with Codex
+                </Button>
+
+                <Button size="sm" variant="outline" onClick={checkClaudeStatus}>
+                  Check status
+                </Button>
+                <Button size="sm" variant="ghost" onClick={logoutClaude}>
+                  Disconnect Claude
+                </Button>
+                {claudeConnected != null && (
+                  <span className={`text-xs ${claudeConnected ? "text-green-600" : "text-muted-foreground"}`}>
+                    {claudeConnected ? "Connected" : "Not connected"}
+                  </span>
+                )}
+              </div>
+
+              {claudeStatus === "waiting" && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs text-muted-foreground">
+                    Paste code#state from Claude
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Textarea
+                      placeholder="code#state"
+                      value={pasteCode}
+                      onChange={(e) => setPasteCode(e.target.value)}
+                      className="min-h-[42px]"
+                    />
+                    <Button size="sm" onClick={completeClaudeSignIn}>
+                      Complete
+                    </Button>
+                  </div>
+                  {claudeAuthUrl && (
+                    <div className="text-[11px] text-muted-foreground break-all">
+                      Auth URL: {claudeAuthUrl}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="flex items-center justify-between">
               <label htmlFor="auto-pr" className="flex flex-col gap-0">
                 <div className="text-sm font-normal">
