@@ -61,6 +61,24 @@ export const sharedConfigSchema = z.object({
   ENABLE_BRAINTRUST: z
     .union([z.boolean(), z.string().transform((val) => val === "true")])
     .default(false),
+
+  // Remote backend selection (k8s or vibekit)
+  REMOTE_BACKEND: z.enum(["k8s", "vibekit"]).optional(),
+
+  // VibeKit configuration
+  VIBEKIT_PROVIDER: z
+    .enum(["e2b", "northflank", "daytona", "cloudflare", "dagger"]) // which sandbox provider to use
+    .optional(),
+  // Provider API keys (optional; only the selected provider is used)
+  E2B_API_KEY: z.string().optional(),
+  NORTHFLANK_API_KEY: z.string().optional(),
+  DAYTONA_API_KEY: z.string().optional(),
+  CLOUDFLARE_API_KEY: z.string().optional(),
+  DAGGER_SERVER_URL: z.string().optional(),
+  // Generic options
+  VIBEKIT_TEMPLATE_ID: z.string().optional(),
+  VIBEKIT_IMAGE: z.string().optional(),
+  VIBEKIT_WORKDIR: z.string().default("/workspace"),
 });
 
 /**
@@ -102,6 +120,18 @@ export const createSharedConfig = (
   braintrustApiKey: data.BRAINTRUST_API_KEY,
   braintrustProjectId: data.BRAINTRUST_PROJECT_ID,
   enableBraintrust: data.ENABLE_BRAINTRUST,
+
+  // Remote backend + VibeKit
+  remoteBackend: data.REMOTE_BACKEND,
+  vibekitProvider: data.VIBEKIT_PROVIDER,
+  e2bApiKey: data.E2B_API_KEY,
+  northflankApiKey: data.NORTHFLANK_API_KEY,
+  daytonaApiKey: data.DAYTONA_API_KEY,
+  cloudflareApiKey: data.CLOUDFLARE_API_KEY,
+  daggerServerUrl: data.DAGGER_SERVER_URL,
+  vibekitTemplateId: data.VIBEKIT_TEMPLATE_ID,
+  vibekitImage: data.VIBEKIT_IMAGE,
+  vibekitWorkdir: data.VIBEKIT_WORKDIR,
 });
 
 export type SharedConfig = ReturnType<typeof createSharedConfig>;

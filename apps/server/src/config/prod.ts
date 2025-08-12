@@ -24,6 +24,8 @@ const prodConfigSchema = sharedConfigSchema.extend({
   // === EXECUTION MODE ===
   // Controls how agent code executes - 'remote' for VM isolation, 'local' for direct execution
   AGENT_MODE: z.enum(["local", "remote"]).default("remote"),
+  // Choose remote backend: Kubernetes (kata) or VibeKit providers
+  REMOTE_BACKEND: z.enum(["k8s", "vibekit"]).default("k8s"),
 
   // === KATA QEMU VM CORE CONFIGURATION ===
   // Docker registry containing VM images with pre-installed tools (Node.js, Python, etc.)
@@ -248,6 +250,7 @@ const prodConfig = {
 
   // Execution mode
   agentMode: parsed.data.AGENT_MODE,
+  remoteBackend: parsed.data.REMOTE_BACKEND,
 
   // Production workspace
   workspaceDir: parsed.data.WORKSPACE_DIR,

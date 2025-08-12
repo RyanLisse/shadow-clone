@@ -11,6 +11,7 @@ import { LocalToolExecutor } from "./local/local-tool-executor";
 import { LocalWorkspaceManager } from "./local/local-workspace-manager";
 import { RemoteToolExecutor } from "./remote/remote-tool-executor";
 import { RemoteWorkspaceManager } from "./remote/remote-workspace-manager";
+import { VibeKitWorkspaceManager } from "./vibekit/vibekit-workspace-manager";
 import { RemoteVMRunner } from "./remote/remote-vm-runner";
 import { LocalGitService } from "./local/local-git-service";
 import { RemoteGitService } from "./remote/remote-git-service";
@@ -33,7 +34,13 @@ export async function createToolExecutor(
     return new LocalToolExecutor(taskId, workspacePath);
   }
 
-  // For remote mode, use dynamic pod discovery to find the actual running VM
+  // If using VibeKit as remote backend, delegate to its workspace manager
+  if ((config as any).remoteBackend === "vibekit") {
+    const wm = new VibeKitWorkspaceManager();
+    return await wm.getExecutor(taskId);
+  }
+
+  // For Kubernetes remote mode, use dynamic pod discovery to find the actual running VM
   try {
     const vmRunner = new RemoteVMRunner();
     const pod = await vmRunner.getVMPodStatus(taskId);
@@ -85,6 +92,9 @@ export function createWorkspaceManager(mode?: AgentMode): WorkspaceManager {
       return new LocalWorkspaceManager();
 
     case "remote":
+      if ((config as any).remoteBackend === "vibekit") {
+        return new VibeKitWorkspaceManager();
+      }
       return new RemoteWorkspaceManager();
 
     default:

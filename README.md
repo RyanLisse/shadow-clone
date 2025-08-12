@@ -147,6 +147,27 @@ GITHUB_CLIENT_SECRET=
 BETTER_AUTH_SECRET=dev-secret
 ```
 
+### Optional: Use VibeKit for remote execution
+
+To run isolated sandboxes on different providers (instead of Kubernetes + Kata), switch the remote backend to VibeKit. Supported providers include E2B, Northflank, Daytona, Cloudflare, and Dagger.
+
+1) Set `AGENT_MODE=remote` in `apps/server/.env` and select the backend and provider:
+
+```bash
+REMOTE_BACKEND=vibekit
+VIBEKIT_PROVIDER=e2b
+E2B_API_KEY=your_e2b_api_key
+VIBEKIT_WORKDIR=/workspace
+# Optional
+VIBEKIT_TEMPLATE_ID=
+```
+
+2) Start the server. New tasks will allocate a VibeKit sandbox and the server will interact with it directly, without requiring the Kata runtime or Kubernetes cluster.
+
+Notes:
+- The sandbox session id is stored in the task session (connectionId) to resume between requests.
+- Cleanup will terminate the sandbox.
+
 `packages/db/.env`
 ```bash
 DATABASE_URL="postgres://postgres:@127.0.0.1:5432/shadow_dev"
