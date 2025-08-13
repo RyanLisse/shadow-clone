@@ -7,6 +7,7 @@ import {
   TaskConfig,
 } from "../interfaces/types";
 import { getGitHubAccessToken } from "@/github/auth/account-service";
+import { getClaudeAccessToken } from "@/vendors/claude/account-service";
 import { getGitHubAppEmail, getGitHubAppName } from "@/config/shared";
 import config from "@/config";
 import { prisma } from "@repo/db";
@@ -36,6 +37,12 @@ export class VibeKitWorkspaceManager implements WorkspaceManager {
       const envs: Record<string, string> = {
         GITHUB_TOKEN: githubToken,
       };
+
+      // Inject Claude MAX token into sandbox if available
+      const claudeToken = await getClaudeAccessToken(taskConfig.userId);
+      if (claudeToken) {
+        envs["CLAUDE_CODE_OAUTH_TOKEN"] = claudeToken;
+      }
 
       const sandbox = await provider.create(envs, undefined, workdir);
 
