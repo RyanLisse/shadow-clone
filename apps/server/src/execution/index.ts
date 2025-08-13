@@ -11,6 +11,7 @@ import { LocalToolExecutor } from "./local/local-tool-executor";
 import { LocalWorkspaceManager } from "./local/local-workspace-manager";
 import { RemoteToolExecutor } from "./remote/remote-tool-executor";
 import { RemoteWorkspaceManager } from "./remote/remote-workspace-manager";
+import { VibeKitWorkspaceManager } from "./vibekit/vibekit-workspace-manager";
 import { RemoteVMRunner } from "./remote/remote-vm-runner";
 import { LocalGitService } from "./local/local-git-service";
 import { RemoteGitService } from "./remote/remote-git-service";
@@ -25,7 +26,8 @@ import { prisma } from "@repo/db";
 export async function createToolExecutor(
   taskId: string,
   workspacePath?: string,
-  mode?: AgentMode
+  mode?: AgentMode,
+  opts?: { remoteBackend?: "k8s" | "vibekit" }
 ): Promise<ToolExecutor> {
   const agentMode = mode || config.agentMode;
 
@@ -33,7 +35,27 @@ export async function createToolExecutor(
     return new LocalToolExecutor(taskId, workspacePath);
   }
 
-  // For remote mode, use dynamic pod discovery to find the actual running VM
+  // Choose remote backend dynamically per task if available
+  let desiredBackend = opts?.remoteBackend || (config as any).remoteBackend;
+
+  // If a VibeKit session exists for this task, prefer VibeKit executor
+  try {
+    const session = await prisma.taskSession.findFirst({
+      where: { taskId, isActive: true, NOT: { connectionId: null } },
+      orderBy: { createdAt: "desc" },
+      select: { connectionId: true },
+    });
+    if (session?.connectionId) {
+      desiredBackend = "vibekit";
+    }
+  } catch {}
+
+  if (desiredBackend === "vibekit") {
+    const wm = new VibeKitWorkspaceManager();
+    return await wm.getExecutor(taskId);
+  }
+
+  // For Kubernetes remote mode, use dynamic pod discovery to find the actual running VM
   try {
     const vmRunner = new RemoteVMRunner();
     const pod = await vmRunner.getVMPodStatus(taskId);
@@ -77,7 +99,10 @@ export async function createToolExecutor(
 /**
  * Create a workspace manager based on the configured agent mode
  */
-export function createWorkspaceManager(mode?: AgentMode): WorkspaceManager {
+export function createWorkspaceManager(
+  mode?: AgentMode,
+  opts?: { remoteBackend?: "k8s" | "vibekit" }
+): WorkspaceManager {
   const agentMode = mode || config.agentMode;
 
   switch (agentMode) {
@@ -85,6 +110,9 @@ export function createWorkspaceManager(mode?: AgentMode): WorkspaceManager {
       return new LocalWorkspaceManager();
 
     case "remote":
+      if ((opts?.remoteBackend || (config as any).remoteBackend) === "vibekit") {
+        return new VibeKitWorkspaceManager();
+      }
       return new RemoteWorkspaceManager();
 
     default:

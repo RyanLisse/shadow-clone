@@ -9,6 +9,8 @@ export interface UserSettings {
   selectedModels: string[];
   enableIndexing: boolean;
   rules?: string | null;
+  executionBackend?: "k8s" | "vibekit" | null;
+  vibekitProvider?: "e2b" | "northflank" | "daytona" | "cloudflare" | "dagger" | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +34,8 @@ export async function createUserSettings(
     selectedModels?: string[];
     enableIndexing?: boolean;
     rules?: string;
+    executionBackend?: "k8s" | "vibekit";
+    vibekitProvider?: "e2b" | "northflank" | "daytona" | "cloudflare" | "dagger";
   }
 ): Promise<UserSettings> {
   const result = await prisma.userSettings.create({
@@ -43,6 +47,8 @@ export async function createUserSettings(
       selectedModels: settings.selectedModels ?? [],
       enableIndexing: settings.enableIndexing ?? false,
       rules: settings.rules,
+      executionBackend: settings.executionBackend,
+      vibekitProvider: settings.vibekitProvider,
     },
   });
 
@@ -58,6 +64,8 @@ export async function updateUserSettings(
     selectedModels?: string[];
     enableIndexing?: boolean;
     rules?: string;
+    executionBackend?: "k8s" | "vibekit" | null;
+    vibekitProvider?: "e2b" | "northflank" | "daytona" | "cloudflare" | "dagger" | null;
   }
 ): Promise<UserSettings> {
   try {
@@ -68,6 +76,8 @@ export async function updateUserSettings(
       selectedModels?: string[];
       enableIndexing?: boolean;
       rules?: string;
+      executionBackend?: "k8s" | "vibekit" | null;
+      vibekitProvider?: "e2b" | "northflank" | "daytona" | "cloudflare" | "dagger" | null;
     } = {};
 
     if (settings.autoPullRequest !== undefined)
@@ -82,6 +92,10 @@ export async function updateUserSettings(
       updateData.enableIndexing = settings.enableIndexing;
     if (settings.rules !== undefined)
       updateData.rules = settings.rules;
+    if (settings.executionBackend !== undefined)
+      updateData.executionBackend = settings.executionBackend;
+    if (settings.vibekitProvider !== undefined)
+      updateData.vibekitProvider = settings.vibekitProvider;
 
     // Build create data object with only non-default values
     const createData: {
@@ -92,6 +106,8 @@ export async function updateUserSettings(
       selectedModels?: string[];
       enableIndexing?: boolean;
       rules?: string;
+      executionBackend?: "k8s" | "vibekit";
+      vibekitProvider?: "e2b" | "northflank" | "daytona" | "cloudflare" | "dagger";
     } = {
       userId,
     };
@@ -123,6 +139,10 @@ export async function updateUserSettings(
       createData.enableIndexing = settings.enableIndexing;
     if (settings.rules !== undefined)
       createData.rules = settings.rules;
+    if (settings.executionBackend !== undefined)
+      createData.executionBackend = settings.executionBackend || undefined;
+    if (settings.vibekitProvider !== undefined)
+      createData.vibekitProvider = settings.vibekitProvider || undefined;
 
     const result = await prisma.userSettings.upsert({
       where: { userId },

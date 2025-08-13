@@ -13,6 +13,8 @@ const devConfigSchema = sharedConfigSchema.extend({
   CORS_ORIGINS: z.string().default("http://localhost:3000"),
   // Development execution mode (defaults to local)
   AGENT_MODE: z.enum(["local", "remote"]).default("local"),
+  // Optional: test vibekit backend in dev when AGENT_MODE=remote
+  REMOTE_BACKEND: z.enum(["k8s", "vibekit"]).default("k8s"),
 
   // Local development workspace
   WORKSPACE_DIR: z.string().default("/workspace"),
@@ -61,6 +63,7 @@ const devConfig = {
 
   // Execution mode
   agentMode: parsed.data.AGENT_MODE,
+  remoteBackend: parsed.data.REMOTE_BACKEND,
 
   // Local development
   workspaceDir: parsed.data.WORKSPACE_DIR,

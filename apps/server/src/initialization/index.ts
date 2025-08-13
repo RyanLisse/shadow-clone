@@ -21,7 +21,8 @@ export class TaskInitializationEngine {
   private backgroundServiceManager: BackgroundServiceManager;
 
   constructor() {
-    this.abstractWorkspaceManager = createWorkspaceManager(); // Abstraction layer for all modes
+    // Workspace manager is resolved per task based on user settings
+    this.abstractWorkspaceManager = createWorkspaceManager();
     this.backgroundServiceManager = new BackgroundServiceManager();
   }
 
@@ -35,6 +36,29 @@ export class TaskInitializationEngine {
     context: TaskModelContext
   ): Promise<void> {
     try {
+      // Resolve workspace manager per user preference (k8s or vibekit)
+      try {
+        const userSettings = await prisma.userSettings.findUnique({
+          where: { userId },
+          select: { executionBackend: true },
+        });
+        const preferred = userSettings?.executionBackend as
+          | "k8s"
+          | "vibekit"
+          | null
+          | undefined;
+        if (preferred) {
+          this.abstractWorkspaceManager = createWorkspaceManager(undefined, {
+            remoteBackend: preferred,
+          });
+        } else {
+          this.abstractWorkspaceManager = createWorkspaceManager();
+        }
+      } catch (e) {
+        // Fallback to default manager on any error
+        this.abstractWorkspaceManager = createWorkspaceManager();
+      }
+
       // Clear any previous progress and start fresh
       await clearTaskProgress(taskId);
 

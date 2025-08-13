@@ -12,6 +12,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@vibe-kit/auth": "^0.0.5",
     "@ai-sdk/openai": "^1.3.23",
     "@monaco-editor/react": "^4.7.0",
     "@octokit/auth-app": "^8.0.2",
