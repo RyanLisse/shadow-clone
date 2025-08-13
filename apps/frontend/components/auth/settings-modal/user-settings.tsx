@@ -20,6 +20,7 @@ import {
   useUpdateUserSettings,
 } from "@/hooks/use-user-settings";
 import { useDebounceCallback } from "@/lib/debounce";
+import { makeBackendRequest } from "@/lib/make-backend-request";
 
 export function UserSettings() {
   const { session, isLoading: isLoadingSession } = useAuthSession();
@@ -128,6 +129,20 @@ export function UserSettings() {
       await claudeAuth.authenticate(pasteCode.trim(), claudeVerifier, claudeState);
       setClaudeStatus("success");
       setClaudeConnected(true);
+
+      // Send token to backend for server/sandbox usage
+      try {
+        const accessToken = await claudeAuth.getValidToken();
+        if (accessToken && session?.user?.id) {
+          await makeBackendRequest("/api/auth/claude/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: session.user.id, accessToken }),
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to persist Claude token to backend", e);
+      }
     } catch (e) {
       console.error("Claude auth failed", e);
       setClaudeStatus("error");
@@ -153,6 +168,19 @@ export function UserSettings() {
       setClaudeAuthUrl(null);
       setClaudeState(null);
       setClaudeVerifier(null);
+
+      // Remove token from backend
+      if (session?.user?.id) {
+        try {
+          await makeBackendRequest("/api/auth/claude/token", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: session.user.id }),
+          });
+        } catch (e) {
+          console.warn("Failed to delete Claude token from backend", e);
+        }
+      }
     } catch (e) {
       console.error("Claude logout failed", e);
     }

@@ -19,6 +19,11 @@ import { filesRouter } from "./files/router";
 import { handleGitHubWebhook } from "./webhooks/github-webhook";
 import { getIndexingStatus } from "./routes/indexing-status";
 import { modelContextService } from "./services/model-context-service";
+import {
+  deleteClaudeAccessToken,
+  getClaudeAccessToken,
+  upsertClaudeAccessToken,
+} from "./vendors/claude/account-service";
 
 const app = express();
 export const chatService = new ChatService();
@@ -68,6 +73,60 @@ app.get("/health", (_req, res) => {
   res
     .status(200)
     .json({ status: "healthy", timestamp: new Date().toISOString() });
+});
+
+// Claude token management (store per-user and expose status)
+app.post("/api/auth/claude/token", async (req, res) => {
+  try {
+    const { userId, accessToken, expiresAt } = req.body || {};
+    if (!userId || typeof userId !== "string") {
+      return res.status(400).json({ error: "userId is required" });
+    }
+    if (!accessToken || typeof accessToken !== "string") {
+      return res.status(400).json({ error: "accessToken is required" });
+    }
+
+    const parsedExpires = expiresAt
+      ? new Date(expiresAt)
+      : undefined;
+
+    await upsertClaudeAccessToken({
+      userId,
+      accessToken,
+      expiresAt: parsedExpires && isFinite(parsedExpires.getTime()) ? parsedExpires : undefined,
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error saving Claude token:", error);
+    res.status(500).json({ error: "Failed to save token" });
+  }
+});
+
+app.get("/api/auth/claude/status", async (req, res) => {
+  try {
+    const userId = String(req.query.userId || "");
+    if (!userId) return res.status(400).json({ error: "userId is required" });
+    const token = await getClaudeAccessToken(userId);
+    res.json({ connected: !!token });
+  } catch (error) {
+    console.error("Error checking Claude token status:", error);
+    res.status(500).json({ error: "Failed to check status" });
+  }
+});
+
+app.delete("/api/auth/claude/token", async (req, res) => {
+  try {
+    const { userId } = req.body || {};
+    if (!userId || typeof userId !== "string") {
+      return res.status(400).json({ error: "userId is required" });
+    }
+    await deleteClaudeAccessToken(userId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting Claude token:", error);
+    res.status(500).json({ error: "Failed to delete token" });
+  }
 });
 
 // Indexing routes
